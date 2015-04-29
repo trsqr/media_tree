@@ -970,6 +970,7 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 			si2168_config.fe = &adap->fe[1];
 			si2168_config.ts_mode = SI2168_TS_SERIAL;
 			si2168_config.ts_clock_inv = false;
+			si2168_config.ts_clock_gapped = true;
 			strlcpy(info.type, "si2168", I2C_NAME_SIZE);
 			info.addr = 0x64;
 			info.platform_data = &si2168_config;
