@@ -881,6 +881,8 @@ static int su3000_streaming_ctrl(struct dvb_usb_adapter *adap, int onoff)
 		.len = 1
 	};
 
+	deb_info("%s: onoff: %d\n", __func__, onoff);
+
 	i2c_transfer(&adap->dev->i2c_adap, &msg, 1);
 
 	return 0;
@@ -891,7 +893,7 @@ static int su3000_power_ctrl(struct dvb_usb_device *d, int i)
 	struct dw2102_state *state = (struct dw2102_state *)d->priv;
 	u8 obuf[] = {0xde, 0};
 
-	info("%s: %d, initialized %d", __func__, i, state->initialized);
+	deb_info("%s: %d, initialized %d\n", __func__, i, state->initialized);
 
 	if (i && !state->initialized) {
 		state->initialized = 1;
@@ -938,7 +940,7 @@ static int su3000_identify_state(struct usb_device *udev,
 				 struct dvb_usb_device_description **desc,
 				 int *cold)
 {
-	info("%s", __func__);
+	deb_info("%s\n", __func__);
 
 	*cold = 0;
 	return 0;
