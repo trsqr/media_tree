@@ -34,6 +34,7 @@
 #include "si2165.h"
 #include "mb86a20s.h"
 #include "si2157.h"
+#include "si2168.h"
 #include "lgdt3306a.h"
 
 MODULE_DESCRIPTION("driver for cx231xx based DVB cards");
@@ -64,6 +65,7 @@ struct cx231xx_dvb {
 	struct dmx_frontend fe_hw;
 	struct dmx_frontend fe_mem;
 	struct dvb_net net;
+	struct i2c_client *i2c_client_demod;
 	struct i2c_client *i2c_client_tuner;
 };
 
@@ -580,8 +582,16 @@ static void unregister_dvb(struct cx231xx_dvb *dvb)
 	dvb->demux.dmx.remove_frontend(&dvb->demux.dmx, &dvb->fe_hw);
 	dvb_dmxdev_release(&dvb->dmxdev);
 	dvb_dmx_release(&dvb->demux);
-	client = dvb->i2c_client_tuner;
+
 	/* remove I2C tuner */
+	client = dvb->i2c_client_tuner;
+	if (client) {
+		module_put(client->dev.driver->owner);
+		i2c_unregister_device(client);
+	}
+
+	/* remove I2C demod */
+	client = dvb->i2c_client_demod;
 	if (client) {
 		module_put(client->dev.driver->owner);
 		i2c_unregister_device(client);
@@ -906,7 +916,69 @@ static int dvb_init(struct cx231xx *dev)
 			   0x60, tuner_i2c,
 			   &pv_tda18271_config);
 		break;
+	case CX231XX_BOARD_GOTVIEW_MASTERHD5:
+	{
+		struct i2c_client *client;
+		struct i2c_board_info info;
+		struct i2c_adapter *adapter;
+		struct si2168_config si2168_config;
+		struct si2157_config si2157_config;
 
+		/* attach frontend */
+		memset(&si2168_config, 0, sizeof(si2168_config));
+		si2168_config.i2c_adapter = &adapter;
+		si2168_config.fe = &dev->dvb->frontend;
+		si2168_config.ts_mode = SI2168_TS_PARALLEL;
+		memset(&info, 0, sizeof(struct i2c_board_info));
+		strlcpy(info.type, "si2168", I2C_NAME_SIZE);
+		info.addr = 0x64;
+		info.platform_data = &si2168_config;
+		request_module(info.type);
+		client = i2c_new_device(demod_i2c, &info);
+		if (client == NULL || client->dev.driver == NULL) {
+			result = -ENODEV;
+			goto out_free;
+		}
+		if (!try_module_get(client->dev.driver->owner)) {
+			i2c_unregister_device(client);
+			result = -ENODEV;
+			goto out_free;
+		}
+
+		dev->dvb->i2c_client_demod = client;
+		dev->dvb->frontend->ops.i2c_gate_ctrl = NULL;
+
+		/* define general-purpose callback pointer */
+		dvb->frontend->callback = cx231xx_tuner_callback;
+
+		/* attach tuner */
+		memset(&info, 0, sizeof(struct i2c_board_info));
+		memset(&si2157_config, 0, sizeof(si2157_config));
+		si2157_config.fe = dev->dvb->frontend;
+		si2157_config.inversion = true;
+		strlcpy(info.type, "si2157", I2C_NAME_SIZE);
+		info.addr = 0x60;
+		info.platform_data = &si2157_config;
+		request_module("si2157");
+		client = i2c_new_device(tuner_i2c, &info);
+		if (client == NULL || client->dev.driver == NULL) {
+			dvb_frontend_detach(dev->dvb->frontend);
+			result = -ENODEV;
+			goto out_free;
+		}
+
+		if (!try_module_get(client->dev.driver->owner)) {
+			i2c_unregister_device(client);
+			dvb_frontend_detach(dev->dvb->frontend);
+			result = -ENODEV;
+			goto out_free;
+		}
+
+		dev->cx231xx_reset_analog_tuner = NULL;
+
+		dev->dvb->i2c_client_tuner = client;
+		break;
+	}
 	default:
 		dev_err(dev->dev,
 			"%s/2: The frontend of your DVB/ATSC card isn't supported yet\n",

@@ -841,6 +841,39 @@ struct cx231xx_board cx231xx_boards[] = {
 			.gpio = NULL,
 		} },
 	},
+	[CX231XX_BOARD_GOTVIEW_MASTERHD5] = {
+		.name = "GoTView MasterHD 5",
+		.tuner_type = TUNER_ABSENT,
+		.tuner_addr = 0x60,
+		.tuner_sif_gpio = -1,
+		.tuner_scl_gpio = -1,
+		.tuner_sda_gpio = -1,
+		.decoder = CX231XX_AVDECODER,
+		.output_mode = OUT_MODE_VIP11,
+		.demod_xfer_mode = 0,
+		.ctl_pin_status_mask = 0xFFFFFFC4,
+		.agc_analog_digital_select_gpio = 0x00,
+		.gpio_pin_status_mask = 0x4001000,
+		.tuner_i2c_master = I2C_2,
+		.demod_i2c_master = I2C_1_MUX_3,
+		.has_dvb = 1,
+		.demod_addr = 0x64,
+		.norm = V4L2_STD_PAL,
+
+		.input = {{
+			.type = CX231XX_VMUX_COMPOSITE1,
+			.vmux = CX231XX_VIN_2_1,
+			.amux = CX231XX_AMUX_LINE_IN,
+			.gpio = NULL,
+		}, {
+			.type = CX231XX_VMUX_SVIDEO,
+			.vmux = CX231XX_VIN_1_1 |
+				(CX231XX_VIN_1_2 << 8) |
+				CX25840_SVIDEO_ON,
+			.amux = CX231XX_AMUX_LINE_IN,
+			.gpio = NULL,
+		} },
+	},
 };
 const unsigned int cx231xx_bcount = ARRAY_SIZE(cx231xx_boards);
 
@@ -908,6 +941,8 @@ struct usb_device_id cx231xx_id_table[] = {
 	 .driver_info = CX231XX_BOARD_OTG102},
 	{USB_DEVICE(USB_VID_TERRATEC, 0x00a6),
 	 .driver_info = CX231XX_BOARD_TERRATEC_GRABBY},
+	{USB_DEVICE(0x1b95, 0x5654),
+	 .driver_info = CX231XX_BOARD_GOTVIEW_MASTERHD5},
 	{},
 };
 
@@ -983,6 +1018,17 @@ void cx231xx_pre_card_setup(struct cx231xx *dev)
 {
 	dev_info(dev->dev, "Identified as %s (card=%d)\n",
 		dev->board.name, dev->model);
+
+	cx231xx_set_gpio_value(dev, 0, 0);
+	msleep(50);
+	cx231xx_set_gpio_value(dev, 1, 1);
+	msleep(50);
+	cx231xx_set_gpio_value(dev, 1, 0);
+	msleep(50);
+	cx231xx_set_gpio_value(dev, 1, 1);
+	msleep(50);
+	cx231xx_set_gpio_value(dev, 0, 1);
+	msleep(50);
 
 	/* set the direction for GPIO pins */
 	if (dev->board.tuner_gpio) {
