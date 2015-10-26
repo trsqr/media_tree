@@ -160,6 +160,8 @@ int cx231xx_send_usb_command(struct cx231xx_i2c *i2c_bus,
 	struct cx231xx *dev = i2c_bus->dev;
 	struct VENDOR_REQUEST_IN ven_req;
 
+	cx231xx_coredbg("send_usb_command\n");
+
 	u8 saddr_len = 0;
 	u8 _i2c_period = 0;
 	u8 _i2c_nostop = 0;
@@ -1429,6 +1431,8 @@ int cx231xx_send_gpio_cmd(struct cx231xx *dev, u32 gpio_bit, u8 *gpio_val,
 {
 	int status = 0;
 	struct VENDOR_REQUEST_IN ven_req;
+
+	cx231xx_coredbg("send_gpio_cmd\n");
 
 	/* Set wValue */
 	ven_req.wValue = (u16) (gpio_bit >> 16 & 0xffff);
