@@ -1765,6 +1765,12 @@ void cx23885_gpio_setup(struct cx23885_dev *dev)
 		 * card does not have any GPIO's connected to subcomponents.
 		 */
 		break;
+	case CX23885_BOARD_TEVII_S472:
+		cx23885_gpio_clear(dev, GPIO_14);
+		msleep(200);
+		cx23885_gpio_set(dev, GPIO_14);
+		msleep(200);
+		break;
 	}
 }
 
