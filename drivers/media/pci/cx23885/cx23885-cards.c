@@ -609,6 +609,10 @@ struct cx23885_board cx23885_boards[] = {
 		.name		= "TeVii S471",
 		.portb		= CX23885_MPEG_DVB,
 	},
+	[CX23885_BOARD_TEVII_S472] = {
+		.name		= "TeVii S472",
+		.portb		= CX23885_MPEG_DVB,
+	},
 	[CX23885_BOARD_PROF_8000] = {
 		.name		= "Prof Revolution DVB-S2 8000",
 		.portb		= CX23885_MPEG_DVB,
@@ -988,6 +992,10 @@ struct cx23885_subid cx23885_subids[] = {
 		.subvendor = 0xd471,
 		.subdevice = 0x9022,
 		.card      = CX23885_BOARD_TEVII_S471,
+	}, {
+		.subvendor = 0xd472,
+		.subdevice = 0x9022,
+		.card      = CX23885_BOARD_TEVII_S472,
 	}, {
 		.subvendor = 0x8000,
 		.subdevice = 0x3034,
@@ -2062,6 +2070,7 @@ void cx23885_card_setup(struct cx23885_dev *dev)
 		break;
 	case CX23885_BOARD_TEVII_S470:
 	case CX23885_BOARD_TEVII_S471:
+	case CX23885_BOARD_TEVII_S472:
 	case CX23885_BOARD_DVBWORLD_2005:
 	case CX23885_BOARD_PROF_8000:
 	case CX23885_BOARD_DVBSKY_T980C:
