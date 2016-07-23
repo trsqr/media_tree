@@ -3725,6 +3725,118 @@ static int mxl5007t_tuner_attach(struct dvb_usb_adapter *adap)
 }
 
 
+#include "mn88472.h"
+#include "tda18250b.h"
+#include "dibusb.h"
+
+static struct tda18250b_config xbox_tda18250b_config = {
+	.if_dvbt_6 = 3950,
+	.if_dvbt_7 = 4450,
+	.if_dvbt_8 = 4950,
+	.if_dvbc = 4950,
+};
+
+static int tda18250b_tuner_attach(struct dvb_usb_adapter *adap)
+{
+
+	int ret;
+	struct tda18250b_config tda18250b_config = xbox_tda18250b_config;
+	struct i2c_client *client;
+	struct i2c_board_info board_info;
+
+	tda18250b_config.fe = adap->fe_adap[0].fe;
+
+	memset(&board_info, 0, sizeof(board_info));
+	strlcpy(board_info.type, "tda18250b_i2c", I2C_NAME_SIZE);
+	board_info.addr = 0x60;
+	board_info.platform_data = &tda18250b_config;
+
+	request_module(board_info.type);
+
+	// register I2C device
+	client = i2c_new_device(&adap->dev->i2c_adap, &board_info);
+	if (client == NULL || client->dev.driver == NULL) {
+		ret = -ENODEV;
+		goto err;
+	}
+
+	// increase I2C driver usage count
+	if (!try_module_get(client->dev.driver->owner)) {
+		i2c_unregister_device(client);
+		ret = -ENODEV;
+		goto err;
+	}
+
+	adap->fe_adap[0].fe->tuner_priv = client;
+
+	return 0;
+	err:
+	err("failed tda18250b_tuner_attach\n");
+	return ret;
+
+}
+
+
+
+static int mn88472_frontend_attach(struct dvb_usb_adapter *adap)
+{
+
+	struct dib0700_state *st = adap->dev->priv;
+	struct i2c_client *client;
+	struct dvb_usb_device *d = adap->dev;
+	struct mn88472_config mn88472_config = { };
+	struct i2c_board_info info = { };
+
+	/* Make use of the new i2c functions from FW 1.20 */
+	st->fw_use_new_i2c_api = 1;
+
+	st->disable_streaming_master_mode = 1;
+
+	/* fe power enable */
+	dib0700_set_gpio(adap->dev, GPIO6, GPIO_OUT, 0);
+	msleep(30);
+	dib0700_set_gpio(adap->dev, GPIO6, GPIO_OUT, 1);
+	msleep(30);
+
+	/* demod reset */
+	dib0700_set_gpio(adap->dev, GPIO10, GPIO_OUT, 1);
+	msleep(30);
+	dib0700_set_gpio(adap->dev, GPIO10, GPIO_OUT, 0);
+	msleep(30);
+	dib0700_set_gpio(adap->dev, GPIO10, GPIO_OUT, 1);
+	msleep(30);
+
+
+	mn88472_config.fe = &adap->fe_adap[0].fe;
+	mn88472_config.i2c_wr_max = 22, strlcpy(info.type, "mn88472",
+			I2C_NAME_SIZE);
+	mn88472_config.xtal = 20500000;
+	mn88472_config.ts_mode = PARALLEL_TS_MODE;
+	mn88472_config.ts_clock = FIXED_TS_CLOCK;
+	info.addr = 0x18;
+	info.platform_data = &mn88472_config;
+	request_module(info.type);
+	client = i2c_new_device(&d->i2c_adap, &info);
+	if (client == NULL || client->dev.driver == NULL) {
+
+		err("client or client driver null\n");
+		return -1;
+	}
+
+	if (!try_module_get(client->dev.driver->owner)) {
+		i2c_unregister_device(client);
+
+		err("module get null\n");
+		return -1;
+	}
+
+	adap->fe_adap[0].fe = mn88472_config.get_dvb_frontend(client);
+
+	return 0;
+
+}
+
+
 /* DVB-USB and USB stuff follows */
 struct usb_device_id dib0700_usb_id_table[] = {
 /* 0 */	{ USB_DEVICE(USB_VID_DIBCOM,    USB_PID_DIBCOM_STK7700P) },
@@ -3815,6 +3927,7 @@ struct usb_device_id dib0700_usb_id_table[] = {
 	{ USB_DEVICE(USB_VID_PCTV,      USB_PID_PCTV_2002E_SE) },
 	{ USB_DEVICE(USB_VID_PCTV,      USB_PID_DIBCOM_STK8096PVR) },
 	{ USB_DEVICE(USB_VID_DIBCOM,    USB_PID_DIBCOM_STK8096PVR) },
+	{ USB_DEVICE(USB_VID_MICROSOFT,    USB_PID_XBOX_TUNER ) },
 	{ 0 }		/* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, dib0700_usb_id_table);
@@ -3847,6 +3960,38 @@ MODULE_DEVICE_TABLE(usb, dib0700_usb_id_table);
 	.size_of_priv     = sizeof(struct dib0700_adapter_state)
 
 struct dvb_usb_device_properties dib0700_devices[] = {
+		{
+				DIB0700_DEFAULT_DEVICE_PROPERTIES,
+
+				.num_adapters = 1,
+				.adapter = { { DIB0700_NUM_FRONTENDS(1),
+						.fe = { {
+						.caps = DVB_USB_ADAP_HAS_PID_FILTER	| DVB_USB_ADAP_PID_FILTER_CAN_BE_TURNED_OFF,
+						.pid_filter_count = 32,
+								.pid_filter =	dibusb_pid_filter,
+								.pid_filter_ctrl =	dibusb_pid_filter_ctrl,
+								.frontend_attach =	mn88472_frontend_attach,
+								.tuner_attach = tda18250b_tuner_attach,
+
+								DIB0700_DEFAULT_STREAMING_CONFIG(0x82),
+
+							}, },}
+
+				},
+
+				.num_device_descs = 1,
+				.devices = {
+						{ "Microsoft Xbox Tuner",
+						{&dib0700_usb_id_table[85], NULL },
+						{ NULL }, },
+
+				},
+
+				.rc.core = { .rc_interval = DEFAULT_RC_INTERVAL, .rc_codes =
+						RC_MAP_DIB0700_RC5_TABLE, .rc_query =
+						dib0700_rc_query_old_firmware, .allowed_protos = RC_BIT_RC5
+						| RC_BIT_RC6_MCE | RC_BIT_NEC, .change_protocol =
+						dib0700_change_protocol, }, },
 	{
 		DIB0700_DEFAULT_DEVICE_PROPERTIES,
 
