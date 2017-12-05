@@ -732,7 +732,7 @@ static int tda18250_sleep(struct dvb_frontend *fe)
 		return ret;
 
 	/* set if freq to 0 in order to make sure it's set after wake up */
-	dev->if_frequency = 0;
+//	dev->if_frequency = 0;
 
 	ret = tda18250_power_control(fe, TDA18250_POWER_STANDBY);
 	return ret;
