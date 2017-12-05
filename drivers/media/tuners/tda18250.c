@@ -764,6 +764,7 @@ static int tda18250_probe(struct i2c_client *client,
 	static const struct regmap_range tda18250_yes_ranges[] = {
 		regmap_reg_range(R05_POWER1, R0B_IRQ4),
 		regmap_reg_range(R21_IF_AGC, R21_IF_AGC),
+		regmap_reg_range(R26_IF, R26_IF),
 		regmap_reg_range(R2A_MSM1, R2B_MSM2),
 		regmap_reg_range(R2F_RSSI1, R31_IRQ_CTRL),
 	};
